@@ -1,4 +1,5 @@
 using Cascade.UI;
+using Updater = Cascade.UI.Installer.Update.Updater;
 
 namespace OldClaudeSessions;
 
@@ -29,12 +30,68 @@ internal sealed class MainView : Component
     private string copied = "";
     private CancellationTokenSource? enrichment;
 
+    // ── Update state ──────────────────────────────────────────────────
+    private string? updateVersion;    // non-null when a newer version is available
+    private string updateStatus = ""; // shown while downloading/applying
+    private bool updateBusy;          // downloading or applying — disables the buttons
+
     // The row list handed to the table, kept alive between renders. DataTable's cell-text cache is
     // only carried across a re-render when the list is reference-equal, so rebuilding it on every
     // Invalidate would re-format every cell for nothing.
     private List<SessionInfo> visibleRows = [];
 
-    public MainView() => Reload();
+    public MainView()
+    {
+        Reload();
+
+        if (Updater.IsConfigured)
+        {
+            // This launch reached a healthy state — defuse the updater's crash-rollback for the
+            // (possibly just-applied) version.
+            Updater.MarkHealthy();
+
+            // Check in the background; if there is one, we ASK before doing anything.
+            _ = CheckForUpdateAsync();
+        }
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        try
+        {
+            var result = await Task.Run(() => Updater.CheckNowAsync());
+            if (result.IsAvailable && result.Version is { Length: > 0 })
+            {
+                Dispatcher.Post(() => { updateVersion = result.Version; Invalidate(); });
+            }
+        }
+        catch
+        {
+            // A failed update check is invisible to the user.
+        }
+    }
+
+    private async Task DownloadAndApplyAsync()
+    {
+        updateBusy = true;
+        updateStatus = "Downloading update…";
+        Invalidate();
+        try
+        {
+            await Task.Run(() => Updater.DownloadAsync());
+            updateStatus = "Restarting to apply…";
+            Invalidate();
+            // Hands off to the cascade-update shim: it waits for this process to exit, swaps in the
+            // new version, and relaunches. So this call ends the app.
+            Updater.ApplyAndRestart();
+        }
+        catch
+        {
+            updateBusy = false;
+            updateStatus = "Update failed — please try again later.";
+            Invalidate();
+        }
+    }
 
     // ── Loading ───────────────────────────────────────────────────────
 
@@ -116,18 +173,57 @@ internal sealed class MainView : Component
 
     // ── Render ────────────────────────────────────────────────────────
 
-    protected override Node Render() =>
-        new Column(
-            spacing: 16,
-            children:
-            [
-                Header(),
-                Toolbar(),
-                SessionTable().Expand(),
-                Footer(),
-            ])
+    protected override Node Render()
+    {
+        var children = new List<Node>(5) { Header() };
+
+        if (updateVersion is not null)
+        {
+            children.Add(UpdateBanner());
+        }
+
+        children.Add(Toolbar());
+        children.Add(SessionTable().Expand());
+        children.Add(Footer());
+
+        return new Column(spacing: 16, children: [.. children])
             .Padding(EdgeInsets.All(20))
             .Background(Background);
+    }
+
+    // Lucide "arrow-down-to-line" — the update affordance.
+    private static readonly Icon UpdateIcon = new(
+        ["M12 17V3", "m6 11 6 6 6-6", "M19 21H5"], new Size(24, 24), 20f, "Update");
+
+    /// <summary>An in-app banner shown when a newer version is available — asks before doing anything.</summary>
+    private Node UpdateBanner()
+    {
+        Node actions = updateBusy
+            ? new Label(updateStatus).FontSize(13).Color(TextPrimary)
+            : new Row(
+                spacing: 10,
+                crossAxisAlignment: CrossAxisAlignment.Center,
+                children:
+                [
+                    new Button("Later", () => { updateVersion = null; Invalidate(); }).Variant("ghost").Height(32),
+                    new Button("Update now", () => _ = DownloadAndApplyAsync()).Height(32),
+                ]);
+
+        return new Row(
+            spacing: 12,
+            crossAxisAlignment: CrossAxisAlignment.Center,
+            children:
+            [
+                new IconView(UpdateIcon, size: 20).Color(TextPrimary),
+                new Label($"Version {updateVersion} is available")
+                    .FontSize(14).Color(TextPrimary)
+                    .MaxLines(1).Overflow(TextOverflow.Ellipsis).Expand(),
+                actions,
+            ])
+            .Padding(EdgeInsets.Symmetric(horizontal: 16, vertical: 12))
+            .Background(Accent)
+            .CornerRadius(10);
+    }
 
     private Node Header()
     {

@@ -4,6 +4,10 @@ obj/
 publish/
 perf-runs/
 
+# Installer packager output + its staging scratch dir
+dist/
+dist-build/
+
 # NuGet
 *.nupkg
 nupkgs/
