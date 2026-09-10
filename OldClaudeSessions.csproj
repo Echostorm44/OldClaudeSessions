@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>OldClaudeSessions</AssemblyName>
+    <RootNamespace>OldClaudeSessions</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <!-- The cascade installer packager stages generated helper projects (wizard, uninstaller,
+         launcher, update shim) under a "<output>-build" scratch dir. When the output dir lives
+         inside the repo those projects' generated .cs fall under this app's default globbing and
+         get double-compiled (CS0579). Exclude the packager's output and scratch dirs. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);dist/**;dist-build/**</DefaultItemExcludes>
+
+    <ApplicationIcon>Assets\appIcon.ico</ApplicationIcon>
+
+    <!-- Release is self-contained AOT. The cascade installer wizard (self-contained) references
+         this project, and a self-contained exe cannot reference a non-self-contained one
+         (NETSDK1150), so this must stay self-contained in Release. -->
+    <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StripSymbols>true</StripSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Echostorm.Cascade.UI" Version="0.1.0-alpha.30" />
+  </ItemGroup>
+
+</Project>
