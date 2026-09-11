@@ -107,11 +107,12 @@ internal sealed class MainView : Component
         sessions = SessionScanner.ScanFast();
         RefreshRows();
 
-        // Keep the selection across a refresh if that session still exists.
-        string? previous = selected?.SessionId;
-        selected = previous is null
-            ? sessions.FirstOrDefault(s => s.IsResumable)
-            : sessions.FirstOrDefault(s => s.SessionId == previous) ?? sessions.FirstOrDefault();
+        // Deliberately no pre-selection. The footer must show what the table shows, and the table
+        // highlights only what was clicked: DataTable.Selected(Bindable<T>) is stored and never
+        // read, so a selection set in code cannot be drawn (CONTROLS-008). Pre-selecting the
+        // newest session would leave the footer describing a row that looks unselected — and a
+        // Refresh rebuilds the rows anyway, which clears the table's own selection.
+        selected = null;
 
         scanning = true;
         _ = EnrichAsync(enrichment.Token);
@@ -263,29 +264,27 @@ internal sealed class MainView : Component
                     Bind(search, v => { search = v; RefreshRows(); Invalidate(); }),
                     placeholder: "Search title, prompt, folder, branch or session id",
                     icon: SearchIcon).Expand(),
-                // The label is passed separately rather than to the Checkbox: the control sizes
-                // its own label to a width that clips anything past a single short word.
-                new Checkbox(Bind(showPruned, v => { showPruned = v; RefreshRows(); Invalidate(); })),
-                new Label("Show pruned").FontSize(13).Color(TextSecondary),
+                new Checkbox(
+                    Bind(showPruned, v => { showPruned = v; RefreshRows(); Invalidate(); }),
+                    "Show pruned"),
             ]);
 
     private Node SessionTable()
     {
         var table = new DataTable<SessionInfo>(visibleRows,
         [
-            // The table's own selection highlight does not survive a re-render — the reconciler
-            // carries a table's cell cache across but not its selected row — and this view
-            // re-renders on every keystroke and every background enrichment. So the marker is
-            // drawn from our own `selected` field, which does survive.
-            DataColumn<SessionInfo>.Custom("", SelectionMarker).Width(16),
-            DataColumn<SessionInfo>.Text("When", s => Format.Relative(s.LastActivity), width: 88),
-            DataColumn<SessionInfo>.Text("Project", s => s.ProjectName, width: 150)
+            // Auto: as wide as the longest project name actually present, no more.
+            DataColumn<SessionInfo>.Text("When", s => Format.Relative(s.LastActivity), width: 88)
+                .Resizable(false),
+            DataColumn<SessionInfo>.Text("Project", s => s.ProjectName)
+                .Width(DataColumnWidth.Auto).MinWidth(110f).MaxWidth(220f)
                 .Tooltip(s => s.ProjectPath),
-            DataColumn<SessionInfo>.Custom("Title", TitleCell).Width(230)
+            DataColumn<SessionInfo>.Custom("Title", TitleCell).Width(230).MinWidth(140f)
                 .Tooltip(s => s.Title.Length > 0 ? s.Title : s.LastPrompt),
-            // Explicit pixels, not Fill: DataTable records Width(DataColumnWidth.Fill)/MinWidth but
-            // never reads them, so an unsized column silently gets availableWidth / columnCount.
-            DataColumn<SessionInfo>.Text("Last prompt", s => s.LastPrompt, width: 320)
+            // Fill: takes whatever the sized columns leave, so the prompt gets the benefit of a
+            // wider window. Drag any border to rebalance.
+            DataColumn<SessionInfo>.Text("Last prompt", s => s.LastPrompt)
+                .Width(DataColumnWidth.Fill).MinWidth(180f)
                 .Tooltip(s => s.LastPrompt),
             DataColumn<SessionInfo>.Text("Msgs", s => s.MessageCount >= 0 ? $"{s.MessageCount:N0}" : s.IsResumable ? "…" : "—", width: 76)
                 .Align(ColumnAlignment.Right),
@@ -318,13 +317,6 @@ internal sealed class MainView : Component
     }
 
     /// <summary>A small accent bar on the selected row.</summary>
-    private Node SelectionMarker(SessionInfo session) =>
-        // A glyph rather than a background-filled box: inside a table cell a childless Column
-        // measures to nothing and paints nothing, however it is sized.
-        new Label(ReferenceEquals(session, selected) ? "▌" : " ")
-            .FontSize(15)
-            .Color(Accent);
-
     /// <summary>
     /// Claude's own title when it has one, otherwise a dimmed placeholder — an untitled row is
     /// usually a session that ended before Claude got around to naming it.

@@ -26,7 +26,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Echostorm.Cascade.UI" Version="0.1.0-alpha.30" />
+    <PackageReference Include="Echostorm.Cascade.UI" Version="0.1.0-alpha.31" />
   </ItemGroup>
 
 </Project>
