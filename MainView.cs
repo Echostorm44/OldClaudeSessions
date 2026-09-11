@@ -107,12 +107,10 @@ internal sealed class MainView : Component
         sessions = SessionScanner.ScanFast();
         RefreshRows();
 
-        // Deliberately no pre-selection. The footer must show what the table shows, and the table
-        // highlights only what was clicked: DataTable.Selected(Bindable<T>) is stored and never
-        // read, so a selection set in code cannot be drawn (CONTROLS-008). Pre-selecting the
-        // newest session would leave the footer describing a row that looks unselected — and a
-        // Refresh rebuilds the rows anyway, which clears the table's own selection.
-        selected = null;
+        // Pre-select the newest session: the one you almost certainly opened this tool to get back.
+        // The table draws it from the Selected binding (alpha.32), so the footer and the highlight
+        // agree from the first frame.
+        selected = visibleRows.FirstOrDefault();
 
         scanning = true;
         _ = EnrichAsync(enrichment.Token);
@@ -299,6 +297,9 @@ internal sealed class MainView : Component
         ])
             .Sortable(true)
             .SelectionMode(SelectionMode.Single)
+            // null is meaningful here (it clears the highlight); the parameter is annotated
+            // non-nullable in alpha.32, hence the `!`.
+            .Selected(Bind<SessionInfo>(selected!, v => selected = v))
             .OnSelect(session =>
             {
                 selected = session;
