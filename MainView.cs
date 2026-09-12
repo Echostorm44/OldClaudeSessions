@@ -297,9 +297,7 @@ internal sealed class MainView : Component
         ])
             .Sortable(true)
             .SelectionMode(SelectionMode.Single)
-            // null is meaningful here (it clears the highlight); the parameter is annotated
-            // non-nullable in alpha.32, hence the `!`.
-            .Selected(Bind<SessionInfo>(selected!, v => selected = v))
+            .Selected(Bind(selected, v => selected = v))
             .OnSelect(session =>
             {
                 selected = session;
