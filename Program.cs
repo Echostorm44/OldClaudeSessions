@@ -1,19 +1,18 @@
 using Cascade.UI;
 using Cascade.UI.Backend.Etch;
 using Cascade.UI.Installer.Update;   // Updater, UpdateConfig
-using Cascade.UI.Updater.Core;       // UpdateBootstrap
 using OldClaudeSessions;
 
 // ── Auto-update ─────────────────────────────────────────────────────────────
 // Configure the updater so the app can offer updates from GitHub Releases. Nothing is applied
 // silently: MainView checks in the background and, if a newer version exists, shows an in-app
-// banner asking first. DetectCrashAndRollback is the only automatic step — it reverts a *consented*
-// update that failed to reach a healthy launch. All best-effort: never block startup.
+// banner asking first. Crash detection and rollback belong to the cascade-update shim, not here:
+// at this point the launch marker on disk is the one the shim just wrote for *this* launch, and
+// checking it from the app rolled 1.0.2 straight back to 1.0.0 (INSTALL-002). The app's only
+// part is MainView's Updater.MarkHealthy(). All best-effort: never block startup.
 try
 {
     string installDir = AppContext.BaseDirectory;
-    UpdateBootstrap.DetectCrashAndRollback(installDir);
-    UpdateBootstrap.BeginLaunch(installDir);
 
     string appVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v
         ? $"{v.Major}.{v.Minor}.{v.Build}"
