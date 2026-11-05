@@ -4,7 +4,7 @@ namespace OldClaudeSessions;
 
 /// <summary>
 /// The install/uninstall declaration, consumed by <c>cascade package --installer</c> to produce the
-/// single-file setup exe. A per-user install (no admin): files land under LocalAppData with Start
+/// single-file setup exe. A per-user install (no admin): files land under LocalAppData\Programs with Start
 /// Menu and Desktop shortcuts. Everything it writes is recorded in the install manifest, so the
 /// bundled uninstaller removes it completely.
 /// </summary>
@@ -20,7 +20,8 @@ public sealed class OldClaudeSessionsInstaller : CascadeInstaller
         Version       = ResolveVersion(),
         Publisher     = "Echostorm",
         Description   = "Find and resume the Claude Code sessions an unexpected reboot took from you.",
-        InstallDir    = InstallDir.LocalAppData("OldClaudeSessions"),
+        // Not %LOCALAPPDATA%\OldClaudeSessions itself: that is where IndexCache keeps index.json.
+        InstallDir    = InstallDir.LocalAppData(@"Programs\OldClaudeSessions"),
         Output        = "OldClaudeSessions-Setup",
         RequiresAdmin = false,
         Shortcuts =
