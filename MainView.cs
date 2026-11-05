@@ -436,9 +436,6 @@ internal sealed class MainView : Component
                             .Expand(),
                         new Button("Copy", () => Copy(session.ResumeCommand, "Copied — paste it in the folder below"), CopyIcon)
                             .Disabled(!session.IsResumable)
-                            // Cascade sizes an icon button with no slack, so a pixel of rounding
-                            // ellipsised the caption to "Co…". The extra width keeps it whole.
-                            .MinWidth(124f)
                             .Height(40),
                     ]),
                 new Row(
